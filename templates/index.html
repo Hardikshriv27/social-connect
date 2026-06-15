@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Social Connect{% endblock %}
+{% block body %}
+<div class="app-shell">
+
+  {% set active_page = 'dashboard' %}
+  {% include "_sidebar.html" %}
+
+  <div class="main-content">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Dashboard</h1>
+        <p>Post and manage your social presence</p>
+      </div>
+      <a href="{{ url_for('dashboard.settings') }}" class="btn btn-sm">
+        <i class="ti ti-plug-connected"></i> Manage connections
+      </a>
+    </div>
+
+    <!-- ── COMPOSE PAGE ── -->
+    <div class="page active" id="page-compose">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert-box show alert-{{ 'danger' if category == 'error' else category }}">
+              <i class="ti ti-{{ 'alert-circle' if category == 'error' else ('alert-triangle' if category == 'warning' else 'circle-check') }}"></i>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <p class="section-label">Publish to</p>
+
+      <div class="platform-grid">
+        <!-- Facebook -->
+        <div class="platform-card {{ 'selected' if fb_account else 'disabled' }}" id="card-facebook"
+             onclick="{{ 'togglePlatform(\'facebook\')' if fb_account else '' }}">
+          <div class="platform-card-header">
+            <div class="platform-icon icon-fb"><i class="ti ti-brand-facebook"></i></div>
+            {% if fb_account %}
+            <button class="toggle-switch on" id="toggle-facebook" aria-label="Toggle Facebook" onclick="event.stopPropagation(); togglePlatform('facebook')"></button>
+            {% endif %}
+          </div>
+          <p class="platform-name">Facebook</p>
+          <p class="platform-status">
+            {% if fb_account %}
+              <span class="dot dot-on" style="margin-right:5px"></span>{{ fb_account.external_account_name }}
+            {% else %}
+              <span class="dot dot-off" style="margin-right:5px"></span>Not connected — <a href="{{ url_for('dashboard.settings') }}">Connect</a>
+            {% endif %}
+          </p>
+        </div>
+        <!-- Instagram -->
+        <div class="platform-card {{ 'selected' if ig_account else 'disabled' }}" id="card-instagram"
+             onclick="{{ 'togglePlatform(\'instagram\')' if ig_account else '' }}">
+          <div class="platform-card-header">
+            <div class="platform-icon icon-ig"><i class="ti ti-brand-instagram"></i></div>
+            {% if ig_account %}
+            <button class="toggle-switch on" id="toggle-instagram" aria-label="Toggle Instagram" onclick="event.stopPropagation(); togglePlatform('instagram')"></button>
+            {% endif %}
+          </div>
+          <p class="platform-name">Instagram</p>
+          <p class="platform-status">
+            {% if ig_account %}
+              <span class="dot dot-on" style="margin-right:5px"></span>@{{ ig_account.external_account_name }}
+            {% else %}
+              <span class="dot dot-off" style="margin-right:5px"></span>Not connected — <a href="{{ url_for('dashboard.settings') }}">Connect</a>
+            {% endif %}
+          </p>
+        </div>
+        <!-- YouTube -->
+        <div class="platform-card {{ 'selected' if yt_account else 'disabled' }}" id="card-youtube"
+             onclick="{{ 'togglePlatform(\'youtube\')' if yt_account else '' }}">
+          <div class="platform-card-header">
+            <div class="platform-icon icon-yt"><i class="ti ti-brand-youtube"></i></div>
+            {% if yt_account %}
+            <button class="toggle-switch on" id="toggle-youtube" aria-label="Toggle YouTube" onclick="event.stopPropagation(); togglePlatform('youtube')"></button>
+            {% endif %}
+          </div>
+          <p class="platform-name">YouTube</p>
+          <p class="platform-status">
+            {% if yt_account %}
+              <span class="dot dot-on" style="margin-right:5px"></span>{{ yt_account.external_account_name }}
+            {% else %}
+              <span class="dot dot-off" style="margin-right:5px"></span>Not connected — <a href="{{ url_for('dashboard.settings') }}">Connect</a>
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <p class="section-label">Create post</p>
+
+      <div class="composer-card">
+        <div class="composer-body">
+          <textarea
+            class="caption-input"
+            id="caption"
+            placeholder="What would you like to share today?"
+            oninput="updateCharCount()"
+          ></textarea>
+
+          <hr class="divider">
+
+          <div class="media-section">
+            <div class="media-block">
+              <p class="media-label"><i class="ti ti-photo" style="font-size:14px"></i> Image <span class="label-hint">(Facebook &amp; Instagram)</span></p>
+
+              <div class="image-tabs">
+                <button class="img-tab active" id="tab-upload" onclick="switchImageTab('upload')">Upload file</button>
+                <button class="img-tab" id="tab-url" onclick="switchImageTab('url')">Paste URL</button>
+              </div>
+
+              <div class="upload-zone" id="image-upload-zone">
+                <input type="file" id="image-file-input" name="image_file" accept="image/*" onchange="handleImageFile(this)">
+                <i class="ti ti-cloud-upload" id="img-upload-icon"></i>
+                <p id="img-upload-text">Drop image here or click to browse</p>
+                <small id="img-upload-sub">JPG, PNG, WEBP — max 10 MB</small>
+              </div>
+
+              <div id="image-url-section" style="display:none">
+                <div class="url-input-wrap">
+                  <i class="ti ti-link"></i>
+                  <input type="text" id="image-url-input" name="image_url" placeholder="https://example.com/photo.jpg" oninput="previewUrl(this.value)">
+                </div>
+                <img id="url-preview-img" class="url-preview" alt="Preview" onerror="this.style.display='none'">
+              </div>
+
+              <p class="info-note">
+                <i class="ti ti-info-circle"></i> Instagram requires a public image URL — local uploads are skipped for IG.
+              </p>
+            </div>
+
+            <div class="media-block">
+              <p class="media-label"><i class="ti ti-video" style="font-size:14px"></i> Video <span class="label-hint">(YouTube only)</span></p>
+              <div class="video-upload-zone" id="video-upload-zone">
+                <input type="file" id="video-file-input" name="video_file" accept="video/*" onchange="handleVideoFile(this)">
+                <i class="ti ti-device-tv" id="vid-icon"></i>
+                <p id="vid-text">Drop video here or click to browse</p>
+                <small>MP4, MOV, AVI — max 500 MB</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer-footer">
+          <span class="char-count" id="char-count">0 / 2,200</span>
+          <button class="btn btn-primary" id="post-btn" onclick="submitPost()">
+            <i class="ti ti-send"></i> Publish now
+          </button>
+        </div>
+      </div>
+
+      <div id="postPreview"></div>
+
+      <div class="alert-box alert-success" id="alert-success">
+        <i class="ti ti-circle-check"></i>
+        <span id="alert-success-msg"></span>
+      </div>
+      <div class="alert-box alert-danger" id="alert-error">
+        <i class="ti ti-alert-circle"></i>
+        <span id="alert-error-msg"></span>
+      </div>
+      <div class="alert-box alert-warning" id="alert-warning">
+        <i class="ti ti-alert-triangle"></i>
+        <span id="alert-warning-msg"></span>
+      </div>
+
+    </div><!-- /compose page -->
+
+    <!-- ── ANALYTICS PAGE ── -->
+    <div class="page" id="page-analytics">
+      <p class="section-label">Platform performance</p>
+      <div class="metric-grid">
+
+        <div class="metric-card">
+          <p class="metric-label"><i class="ti ti-brand-facebook" style="color:var(--fb)"></i> Facebook reach (7d)</p>
+          {% if fb_reach is not none %}
+            <p class="metric-value num">{{ "{:,}".format(fb_reach) }}</p>
+            <p class="metric-delta delta-up"><i class="ti ti-trending-up"></i> Live from Graph API</p>
+          {% elif fb_account %}
+            <p class="metric-value empty">—</p>
+            <p class="metric-delta delta-none">No data yet — engage with posts to see analytics</p>
+          {% else %}
+            <p class="metric-value empty">—</p>
+            <p class="metric-delta delta-none">Connect Facebook to see analytics</p>
+          {% endif %}
+        </div>
+
+        <div class="metric-card">
+          <p class="metric-label"><i class="ti ti-brand-instagram" style="color:var(--ig)"></i> Instagram reach (today)</p>
+          {% if ig_reach is not none %}
+            <p class="metric-value num">{{ "{:,}".format(ig_reach) }}</p>
+            <p class="metric-delta delta-up"><i class="ti ti-trending-up"></i> Live from Graph API</p>
+          {% elif ig_account %}
+            <p class="metric-value empty">—</p>
+            <p class="metric-delta delta-none">No data yet — engage with posts to see analytics</p>
+          {% else %}
+            <p class="metric-value empty">—</p>
+            <p class="metric-delta delta-none">Connect Instagram to see analytics</p>
+          {% endif %}
+        </div>
+
+        <div class="metric-card">
+          <p class="metric-label"><i class="ti ti-brand-youtube" style="color:var(--yt)"></i> YouTube subscribers</p>
+          {% if yt_stats and yt_stats.subscriberCount is defined %}
+            <p class="metric-value num">{{ "{:,}".format(yt_stats.subscriberCount|int) }}</p>
+            <p class="metric-delta delta-up"><i class="ti ti-trending-up"></i> Live from YouTube Data API</p>
+          {% elif yt_account %}
+            <p class="metric-value empty">—</p>
+            <p class="metric-delta delta-none">No data yet — upload to see analytics</p>
+          {% else %}
+            <p class="metric-value empty">—</p>
+            <p class="metric-delta delta-none">Connect YouTube to see analytics</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if ig_followers is not none %}
+      <p style="font-size:13px;color:var(--slate);margin-bottom:6px">
+        Instagram followers: <strong class="num">{{ "{:,}".format(ig_followers) }}</strong>
+      </p>
+      {% endif %}
+
+      <p class="info-note">
+        Seeing "—"? Visit <code>/debug/token</code> to check whether your connected accounts'
+        tokens are valid, or head to <a href="{{ url_for('dashboard.settings') }}">Settings</a> to reconnect.
+      </p>
+    </div>
+
+    <!-- ── POSTS PAGE ── -->
+    <div class="page" id="page-posts">
+      <p class="section-label">Recent posts</p>
+
+      {% if not fb_account %}
+        <div class="empty-state">
+          <i class="ti ti-plug-connected"></i>
+          <p>Connect Facebook to see your recent posts here</p>
+          <p class="empty-sub"><a href="{{ url_for('dashboard.settings') }}">Go to Settings</a> to connect your account</p>
+        </div>
+      {% elif fb_posts and fb_posts|length > 0 %}
+        {% for post in fb_posts %}
+          <div class="post-card">
+            {% if post.full_picture %}
+              <img src="{{ post.full_picture }}" class="post-card-image" alt="Post image" onerror="this.style.display='none'">
+            {% endif %}
+            <p class="post-card-text">
+              {{ post.message if post.message else "Media post (no text)" }}
+            </p>
+            <div class="post-card-meta">
+              <span><i class="ti ti-brand-facebook"></i> Facebook</span>
+              {% if post.created_time %}
+                <span><i class="ti ti-clock"></i> {{ post.created_time }}</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <i class="ti ti-stack-2"></i>
+          <p>No posts yet</p>
+          <p class="empty-sub">Posts you publish will appear here once Facebook returns them</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<form id="post-form" action="{{ url_for('dashboard.post') }}" method="POST" enctype="multipart/form-data" style="display:none"></form>
+
+<script>
+// ── Tab navigation ──
+function switchTab(tab, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-nav .nav-link-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Platform toggles ──
+const connected = {
+  facebook: {{ 'true' if fb_account else 'false' }},
+  instagram: {{ 'true' if ig_account else 'false' }},
+  youtube: {{ 'true' if yt_account else 'false' }}
+};
+const platforms = {
+  facebook: connected.facebook,
+  instagram: connected.instagram,
+  youtube: connected.youtube
+};
+
+function togglePlatform(p) {
+  if (!connected[p]) return;
+  platforms[p] = !platforms[p];
+  const card = document.getElementById('card-' + p);
+  const tog  = document.getElementById('toggle-' + p);
+  card.classList.toggle('selected', platforms[p]);
+  if (tog) tog.classList.toggle('on', platforms[p]);
+}
+
+// ── Image tab (upload vs URL) ──
+function switchImageTab(tab) {
+  const uploadZone = document.getElementById('image-upload-zone');
+  const urlSection = document.getElementById('image-url-section');
+  document.getElementById('tab-upload').classList.toggle('active', tab === 'upload');
+  document.getElementById('tab-url').classList.toggle('active', tab === 'url');
+  uploadZone.style.display = tab === 'upload' ? 'block' : 'none';
+  urlSection.style.display = tab === 'url'    ? 'block' : 'none';
+}
+
+// ── Image file handling ──
+function handleImageFile(input) {
+  const zone = document.getElementById('image-upload-zone');
+  const icon = document.getElementById('img-upload-icon');
+  const text = document.getElementById('img-upload-text');
+  const sub  = document.getElementById('img-upload-sub');
+  if (input.files && input.files[0]) {
+    const f = input.files[0];
+    zone.classList.add('has-file');
+    icon.className = 'ti ti-circle-check';
+    text.textContent = f.name;
+    sub.textContent  = (f.size / 1024 / 1024).toFixed(1) + ' MB';
+  }
+}
+
+const imgZone = document.getElementById('image-upload-zone');
+imgZone.addEventListener('dragover',  e => { e.preventDefault(); imgZone.classList.add('dragover'); });
+imgZone.addEventListener('dragleave', () => imgZone.classList.remove('dragover'));
+imgZone.addEventListener('drop', e => {
+  e.preventDefault(); imgZone.classList.remove('dragover');
+  const dt = e.dataTransfer;
+  if (dt.files.length) {
+    const inp = document.getElementById('image-file-input');
+    inp.files = dt.files;
+    handleImageFile(inp);
+  }
+});
+
+// ── URL preview ──
+let urlPreviewTimer;
+function previewUrl(url) {
+  clearTimeout(urlPreviewTimer);
+  const img = document.getElementById('url-preview-img');
+  if (!url) { img.style.display = 'none'; return; }
+  urlPreviewTimer = setTimeout(() => {
+    img.src = url;
+    img.style.display = 'block';
+  }, 600);
+}
+
+// ── Video file handling ──
+function handleVideoFile(input) {
+  const zone = document.getElementById('video-upload-zone');
+  const icon = document.getElementById('vid-icon');
+  const text = document.getElementById('vid-text');
+  if (input.files && input.files[0]) {
+    const f = input.files[0];
+    zone.classList.add('has-file');
+    icon.className = 'ti ti-circle-check';
+    text.textContent = f.name + ' — ' + (f.size / 1024 / 1024).toFixed(1) + ' MB';
+  }
+}
+
+// ── Character count ──
+function updateCharCount() {
+  const len = document.getElementById('caption').value.length;
+  const el  = document.getElementById('char-count');
+  el.textContent = len.toLocaleString() + ' / 2,200';
+  el.classList.toggle('warn', len > 2000);
+}
+
+// ── Alerts ──
+function showAlert(type, msg) {
+  ['alert-success','alert-error','alert-warning'].forEach(id => {
+    document.getElementById(id).classList.remove('show');
+  });
+  const map = { success: 'alert-success', error: 'alert-error', warning: 'alert-warning' };
+  const id = map[type];
+  document.getElementById(id + '-msg').textContent = msg;
+  document.getElementById(id).classList.add('show');
+  setTimeout(() => document.getElementById(id).classList.remove('show'), 6000);
+}
+
+// ── Submit ──
+async function submitPost() {
+  const caption = document.getElementById('caption').value.trim();
+  if (!caption) { showAlert('error', 'Please write a caption before posting.'); return; }
+
+  const active = Object.entries(platforms).filter(([,v]) => v).map(([k]) => k);
+  if (active.length === 0) { showAlert('error', 'Select at least one connected platform.'); return; }
+
+  const btn = document.getElementById('post-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Publishing…';
+
+  const fd = new FormData();
+  fd.append('message', caption);
+
+  const activeTab = document.getElementById('tab-upload').classList.contains('active') ? 'upload' : 'url';
+  if (activeTab === 'upload') {
+    const imgFile = document.getElementById('image-file-input').files[0];
+    if (imgFile) fd.append('image_file', imgFile);
+  } else {
+    const imgUrl = document.getElementById('image-url-input').value.trim();
+    if (imgUrl) fd.append('image_url', imgUrl);
+  }
+
+  const vidFile = document.getElementById('video-file-input').files[0];
+  if (vidFile) fd.append('video_file', vidFile);
+
+  active.forEach(p => fd.append('platforms', p));
+
+  try {
+    const res  = await fetch("{{ url_for('dashboard.post') }}", { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+      showAlert('success', data.message);
+      if (data.preview) {
+        const previewDiv = document.getElementById("postPreview");
+        previewDiv.innerHTML = `
+          <div class="post-card" style="margin-top:16px">
+            <p class="section-label" style="margin-bottom:10px">Post preview</p>
+            ${data.preview.image ? `<img src="${data.preview.image}" class="post-card-image" alt="Preview">` : ""}
+            <p class="post-card-text">${data.preview.text}</p>
+            <div class="post-card-meta"><span>Posted to: ${data.preview.platforms.join(", ")}</span></div>
+          </div>
+        `;
+      }
+      document.getElementById('caption').value = '';
+      updateCharCount();
+      const imgInput = document.getElementById('image-file-input');
+      imgInput.value = '';
+      document.getElementById('image-upload-zone').classList.remove('has-file');
+      document.getElementById('img-upload-icon').className = 'ti ti-cloud-upload';
+      document.getElementById('img-upload-text').textContent = 'Drop image here or click to browse';
+      document.getElementById('img-upload-sub').textContent = 'JPG, PNG, WEBP — max 10 MB';
+      document.getElementById('video-file-input').value = '';
+      document.getElementById('video-upload-zone').classList.remove('has-file');
+      document.getElementById('vid-icon').className = 'ti ti-device-tv';
+      document.getElementById('vid-text').textContent = 'Drop video here or click to browse';
+    } else {
+      showAlert('error', data.message);
+    }
+  } catch (err) {
+    showAlert('error', 'Network error — please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-send"></i> Publish now';
+  }
+}
+</script>
+{% endblock %}

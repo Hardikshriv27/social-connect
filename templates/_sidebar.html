@@ -1,0 +1,67 @@
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">S</div>
+    Social Connect
+  </div>
+
+  <nav class="sidebar-nav">
+    {% if active_page == 'dashboard' %}
+      <button class="nav-link-item active" onclick="switchTab('compose', this)">
+        <i class="ti ti-edit"></i> Compose
+      </button>
+      <button class="nav-link-item" onclick="switchTab('analytics', this)">
+        <i class="ti ti-chart-bar"></i> Analytics
+      </button>
+      <button class="nav-link-item" onclick="switchTab('posts', this)">
+        <i class="ti ti-stack-2"></i> Posts
+      </button>
+    {% else %}
+      <a href="{{ url_for('dashboard.home') }}" class="nav-link-item">
+        <i class="ti ti-edit"></i> Compose
+      </a>
+      <a href="{{ url_for('dashboard.home') }}" class="nav-link-item">
+        <i class="ti ti-chart-bar"></i> Analytics
+      </a>
+      <a href="{{ url_for('dashboard.home') }}" class="nav-link-item">
+        <i class="ti ti-stack-2"></i> Posts
+      </a>
+    {% endif %}
+    <a href="{{ url_for('dashboard.settings') }}" class="nav-link-item {{ 'active' if active_page == 'settings' }}">
+      <i class="ti ti-settings"></i> Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <p class="sidebar-footer-label">Connected</p>
+    <div class="connection-rail">
+      <div class="connection-chip">
+        <div class="chip-icon icon-fb"><i class="ti ti-brand-facebook"></i></div>
+        Facebook
+        <span class="chip-status">
+          <span class="dot {{ 'dot-on' if fb_account else 'dot-off' }}"></span>
+        </span>
+      </div>
+      <div class="connection-chip">
+        <div class="chip-icon icon-ig"><i class="ti ti-brand-instagram"></i></div>
+        Instagram
+        <span class="chip-status">
+          <span class="dot {{ 'dot-on' if ig_account else 'dot-off' }}"></span>
+        </span>
+      </div>
+      <div class="connection-chip">
+        <div class="chip-icon icon-yt"><i class="ti ti-brand-youtube"></i></div>
+        YouTube
+        <span class="chip-status">
+          <span class="dot {{ 'dot-on' if yt_account else 'dot-off' }}"></span>
+        </span>
+      </div>
+    </div>
+
+    <div class="user-row">
+      <span class="user-email">{{ current_user.email }}</span>
+      <a href="{{ url_for('auth.logout') }}" class="logout-link" title="Log out">
+        <i class="ti ti-logout-2"></i>
+      </a>
+    </div>
+  </div>
+</aside>

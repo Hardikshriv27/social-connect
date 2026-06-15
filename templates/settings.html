@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Settings — Social Connect{% endblock %}
+{% block body %}
+<div class="app-shell">
+
+  {% set active_page = 'settings' %}
+  {% include "_sidebar.html" %}
+
+  <div class="main-content">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Settings</h1>
+        <p>Manage your connected social accounts</p>
+      </div>
+      <a href="{{ url_for('dashboard.home') }}" class="btn btn-sm">
+        <i class="ti ti-arrow-left"></i> Back to dashboard
+      </a>
+    </div>
+
+    <div class="page active" id="page-settings">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert-box show alert-{{ 'danger' if category == 'error' else category }}">
+              <i class="ti ti-{{ 'alert-circle' if category == 'error' else ('alert-triangle' if category == 'warning' else 'circle-check') }}"></i>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <p class="section-label">Connected accounts</p>
+      <div class="settings-card">
+
+        <!-- Facebook -->
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="platform-icon icon-fb"><i class="ti ti-brand-facebook"></i></div>
+            <div>
+              <h3>Facebook</h3>
+              {% if fb_account %}
+                <p>{{ fb_account.external_account_name }} · Page ID {{ fb_account.external_account_id }}</p>
+              {% else %}
+                <p>Connect your Facebook Page to post and view insights</p>
+              {% endif %}
+            </div>
+          </div>
+          <div class="settings-row-actions">
+            {% if fb_account %}
+              {% if fb_token_valid %}
+                <span class="badge badge-active"><i class="ti ti-circle-check" style="font-size:12px"></i> Connected</span>
+              {% else %}
+                <span class="badge badge-warn"><i class="ti ti-alert-triangle" style="font-size:12px"></i> Needs reconnect</span>
+              {% endif %}
+              <a href="{{ url_for('oauth.facebook_disconnect') }}" class="btn btn-sm btn-danger-outline">Disconnect</a>
+            {% else %}
+              <a href="{{ url_for('oauth.facebook_start') }}" class="btn btn-sm btn-primary">
+                <i class="ti ti-brand-facebook"></i> Connect
+              </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Instagram -->
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="platform-icon icon-ig"><i class="ti ti-brand-instagram"></i></div>
+            <div>
+              <h3>Instagram</h3>
+              {% if ig_account %}
+                <p>@{{ ig_account.external_account_name }} · linked via Facebook Page</p>
+              {% else %}
+                <p>Connects automatically with a linked Instagram Business account</p>
+              {% endif %}
+            </div>
+          </div>
+          <div class="settings-row-actions">
+            {% if ig_account %}
+              <span class="badge badge-active"><i class="ti ti-circle-check" style="font-size:12px"></i> Connected</span>
+            {% elif fb_account %}
+              <span class="badge badge-inactive">No linked IG account</span>
+            {% else %}
+              <span class="badge badge-inactive">Connect Facebook first</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- YouTube -->
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="platform-icon icon-yt"><i class="ti ti-brand-youtube"></i></div>
+            <div>
+              <h3>YouTube</h3>
+              {% if yt_account %}
+                <p>{{ yt_account.external_account_name }}</p>
+              {% else %}
+                <p>Connect your YouTube channel to upload videos</p>
+              {% endif %}
+            </div>
+          </div>
+          <div class="settings-row-actions">
+            {% if yt_account %}
+              <span class="badge badge-active"><i class="ti ti-circle-check" style="font-size:12px"></i> Connected</span>
+              <a href="{{ url_for('oauth.youtube_disconnect') }}" class="btn btn-sm btn-danger-outline">Disconnect</a>
+            {% else %}
+              <a href="{{ url_for('oauth.youtube_start') }}" class="btn btn-sm btn-primary">
+                <i class="ti ti-brand-youtube"></i> Connect
+              </a>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+
+      <p class="section-label" style="margin-top:26px">Diagnostics</p>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div>
+            <h3 style="font-size:13.5px;font-weight:600">Token status</h3>
+            <p style="font-size:12px;color:var(--slate);margin-top:2px">Check whether your connected accounts' tokens are valid and when they expire</p>
+          </div>
+          <a href="{{ url_for('dashboard.debug_token') }}" target="_blank" class="btn btn-sm">View JSON</a>
+        </div>
+      </div>
+
+      <p class="section-label" style="margin-top:26px">About</p>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div>
+            <h3 style="font-size:13.5px;font-weight:600">Social Connect</h3>
+            <p style="font-size:12px;color:var(--slate);margin-top:2px">Unified social media management — Flask + Meta Graph API + YouTube Data API</p>
+          </div>
+          <span class="badge badge-inactive">v2.0</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

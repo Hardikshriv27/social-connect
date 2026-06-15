@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Log in — Social Connect{% endblock %}
+{% block body %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-mark">S</div>
+      <span>Social Connect</span>
+    </div>
+    <h1>Log in</h1>
+    <p class="auth-subtitle">Manage your connected accounts and posts.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+            <div class="alert-box show alert-{{ 'danger' if category == 'error' else category }}">
+              <i class="ti ti-{{ 'alert-circle' if category == 'error' else 'circle-check' }}"></i>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <div class="form-group">
+        <label class="form-label" for="email">Email</label>
+        <input class="form-input" type="email" id="email" name="email" placeholder="you@example.com" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <div class="password-wrap">
+          <input class="form-input" type="password" id="password" name="password" placeholder="••••••••" required>
+          <button type="button" class="password-toggle" onclick="togglePassword('password', this)" aria-label="Show password">
+            <i class="ti ti-eye"></i>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Log in</button>
+    </form>
+
+    <p class="auth-footer">Don't have an account? <a href="{{ url_for('auth.signup_page') }}">Sign up</a></p>
+  </div>
+</div>
+
+<script>
+function togglePassword(fieldId, btn) {
+  const input = document.getElementById(fieldId);
+  const icon = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'ti ti-eye-off';
+  } else {
+    input.type = 'password';
+    icon.className = 'ti ti-eye';
+  }
+}
+</script>
+{% endblock %}
