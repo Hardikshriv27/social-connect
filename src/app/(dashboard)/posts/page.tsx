@@ -15,7 +15,11 @@ type Post = {
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
-  media: { id: string; url: string; type: string }[];
+  media: {
+    id: string;
+    url: string;
+    type: string;
+  }[];
 };
 
 export default function PostsPage() {
@@ -30,6 +34,7 @@ export default function PostsPage() {
       try {
         const response = await fetch("/api/posts");
         const data = await response.json();
+
         if (!cancelled) {
           if (!response.ok) {
             setError(data.error || "Could not load posts.");
@@ -38,24 +43,33 @@ export default function PostsPage() {
           }
         }
       } catch {
-        if (!cancelled) setError("Could not load posts.");
+        if (!cancelled) {
+          setError("Could not load posts.");
+        }
       }
     }
 
     loadPosts();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this post? This cannot be undone.")) return;
+    if (!confirm("Delete this post? This cannot be undone.")) {
+      return;
+    }
 
     setDeletingId(id);
+
     try {
-      const response = await fetch(`/api/posts/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/posts/${id}`, {
+        method: "DELETE",
+      });
+
       if (response.ok) {
-        setPosts((prev) => prev?.filter((p) => p.id !== id) ?? null);
+        setPosts((prev) => prev?.filter((post) => post.id !== id) ?? null);
       } else {
         const data = await response.json().catch(() => null);
         setError(data?.error || "Could not delete this post.");
@@ -71,9 +85,15 @@ export default function PostsPage() {
     <div className="mx-auto max-w-3xl">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">Posts</h1>
-          <p className="mt-1 text-[13.5px] text-ink-muted">All posts you&apos;ve created.</p>
+          <h1 className="text-xl font-semibold tracking-tight text-ink">
+            Posts
+          </h1>
+
+          <p className="mt-1 text-[13.5px] text-ink-muted">
+            All posts you&apos;ve created.
+          </p>
         </div>
+
         <Link
           href="/create"
           className="flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-brand-ink hover:opacity-90"
@@ -111,24 +131,36 @@ export default function PostsPage() {
       ) : (
         <ul className="divide-y divide-line rounded-lg border border-line">
           {posts.map((post) => (
-            <li key={post.id} className="flex items-start justify-between gap-4 px-4 py-4">
+            <li
+              key={post.id}
+              className="flex items-start justify-between gap-4 px-4 py-4"
+            >
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5">
                   <p className="truncate text-[13.5px] font-medium text-ink">
                     {post.title || "Untitled post"}
                   </p>
+
                   <StatusBadge status={post.status} />
                 </div>
+
                 {post.content && (
-                  <p className="mt-1 line-clamp-2 text-[13px] text-ink-muted">{post.content}</p>
+                  <p className="mt-1 line-clamp-2 text-[13px] text-ink-muted">
+                    {post.content}
+                  </p>
                 )}
+
                 <p className="mt-1.5 text-[12px] text-ink-muted">
                   {post.status === "SCHEDULED"
                     ? `Scheduled for ${formatDateTime(post.scheduledAt)}`
                     : post.status === "PUBLISHED"
                       ? `Published ${formatDateTime(post.publishedAt)}`
                       : `Created ${formatDateTime(post.createdAt)}`}
-                  {post.media.length > 0 && ` · ${post.media.length} attachment${post.media.length > 1 ? "s" : ""}`}
+
+                  {post.media.length > 0 &&
+                    ` · ${post.media.length} attachment${
+                      post.media.length > 1 ? "s" : ""
+                    }`}
                 </p>
               </div>
 
