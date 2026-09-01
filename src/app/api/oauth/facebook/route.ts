@@ -12,11 +12,13 @@ export async function GET(request: Request) {
 
   const clientId = process.env.META_CLIENT_ID;
 
+  const configId = process.env.META_LOGIN_CONFIG_ID;
+
   const redirectUri =
     process.env.META_REDIRECT_URI ||
     `${process.env.APP_URL}/api/oauth/facebook/callback`;
 
-  if (!clientId) {
+  if (!clientId || !configId) {
     return NextResponse.redirect(
       new URL("/accounts?oauth_error=meta_not_configured", request.url),
     );
@@ -32,11 +34,11 @@ export async function GET(request: Request) {
 
   authorizationUrl.searchParams.set("redirect_uri", redirectUri.trim());
 
+  authorizationUrl.searchParams.set("config_id", configId.trim());
+
   authorizationUrl.searchParams.set("response_type", "code");
 
   authorizationUrl.searchParams.set("state", state);
-
-  authorizationUrl.searchParams.set("scope", "pages_show_list");
 
   const response = NextResponse.redirect(authorizationUrl);
 

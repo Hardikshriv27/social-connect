@@ -14,9 +14,7 @@ import {
 
 import { EmptyState } from "@/components/ui/EmptyState";
 
-import {
-  DisconnectAccountButton,
-} from "@/components/social/DisconnectAccountButton";
+import { DisconnectAccountButton } from "@/components/social/DisconnectAccountButton";
 
 const PLATFORM_META = {
   FACEBOOK: {
@@ -30,7 +28,7 @@ const PLATFORM_META = {
     label: "Instagram",
     icon: InstagramIcon,
     color: "text-[#E4405F]",
-    connectHref: "/api/oauth/facebook",
+    connectHref: "/api/oauth/instagram",
   },
 
   YOUTUBE: {
@@ -48,20 +46,19 @@ export default async function AccountsPage() {
     redirect("/login");
   }
 
-  const accounts =
-    await prisma.connectedAccount.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        facebookDetail: true,
-        instagramDetail: true,
-        youtubeDetail: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+  const accounts = await prisma.connectedAccount.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    include: {
+      facebookDetail: true,
+      instagramDetail: true,
+      youtubeDetail: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
   const connectedPlatforms = new Set(
     accounts.map((account) => account.platform),
@@ -89,40 +86,27 @@ export default async function AccountsPage() {
         <ul className="mb-10 divide-y divide-line rounded-lg border border-line bg-surface">
           {accounts.map((account) => {
             const meta =
-              PLATFORM_META[
-                account.platform as keyof typeof PLATFORM_META
-              ];
+              PLATFORM_META[account.platform as keyof typeof PLATFORM_META];
 
-            const Icon =
-              meta?.icon ?? Link2;
+            const Icon = meta?.icon ?? Link2;
 
             let displayName =
-              account.profileName ||
-              meta?.label ||
-              account.platform;
+              account.profileName || meta?.label || account.platform;
 
-            if (
-              account.platform === "FACEBOOK"
-            ) {
+            if (account.platform === "FACEBOOK") {
               displayName =
                 account.facebookDetail?.pageName ||
                 account.profileName ||
                 "Facebook account";
             }
 
-            if (
-              account.platform === "INSTAGRAM"
-            ) {
-              displayName =
-                account.instagramDetail?.username
-                  ? `@${account.instagramDetail.username}`
-                  : account.profileName ||
-                    "Instagram account";
+            if (account.platform === "INSTAGRAM") {
+              displayName = account.instagramDetail?.username
+                ? `@${account.instagramDetail.username}`
+                : account.profileName || "Instagram account";
             }
 
-            if (
-              account.platform === "YOUTUBE"
-            ) {
+            if (account.platform === "YOUTUBE") {
               displayName =
                 account.youtubeDetail?.channelTitle ||
                 account.profileName ||
@@ -137,10 +121,7 @@ export default async function AccountsPage() {
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-inset">
                     <Icon
-                      className={`h-5 w-5 ${
-                        meta?.color ||
-                        "text-ink-muted"
-                      }`}
+                      className={`h-5 w-5 ${meta?.color || "text-ink-muted"}`}
                     />
                   </div>
 
@@ -150,13 +131,9 @@ export default async function AccountsPage() {
                     </p>
 
                     <p className="mt-0.5 text-[12.5px] text-ink-muted">
-                      {meta?.label ||
-                        account.platform}
+                      {meta?.label || account.platform}
                       {" · "}
-                      Connected{" "}
-                      {formatDate(
-                        account.createdAt,
-                      )}
+                      Connected {formatDate(account.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -166,9 +143,7 @@ export default async function AccountsPage() {
                     Active
                   </span>
 
-                  <DisconnectAccountButton
-                    accountId={account.id}
-                  />
+                  <DisconnectAccountButton accountId={account.id} />
                 </div>
               </li>
             );
@@ -187,20 +162,16 @@ export default async function AccountsPage() {
           description="Connect Pages"
           color="text-[#1877F2]"
           href="/api/oauth/facebook"
-          connected={connectedPlatforms.has(
-            "FACEBOOK",
-          )}
+          connected={connectedPlatforms.has("FACEBOOK")}
         />
 
         <ConnectCard
           icon={InstagramIcon}
           label="Instagram"
-          description="Via Facebook"
+          description="Connect account"
           color="text-[#E4405F]"
-          href="/api/oauth/facebook"
-          connected={connectedPlatforms.has(
-            "INSTAGRAM",
-          )}
+          href="/api/oauth/instagram"
+          connected={connectedPlatforms.has("INSTAGRAM")}
         />
 
         <ConnectCard
@@ -209,16 +180,13 @@ export default async function AccountsPage() {
           description="Connect channel"
           color="text-[#FF0000]"
           href="/api/oauth/youtube"
-          connected={connectedPlatforms.has(
-            "YOUTUBE",
-          )}
+          connected={connectedPlatforms.has("YOUTUBE")}
         />
       </div>
 
       <p className="mt-4 text-[12px] text-ink-muted">
-        Instagram professional accounts are
-        discovered through connected Facebook
-        Pages.
+        Connect your Instagram professional account to manage and publish
+        content through Social Connect.
       </p>
     </div>
   );
@@ -243,19 +211,13 @@ function ConnectCard({
     return (
       <div className="flex items-center gap-3 rounded-lg border border-line px-4 py-3.5 opacity-60">
         <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface-inset">
-          <Icon
-            className={`h-4 w-4 ${color}`}
-          />
+          <Icon className={`h-4 w-4 ${color}`} />
         </div>
 
         <div>
-          <p className="text-[13.5px] font-medium text-ink">
-            {label}
-          </p>
+          <p className="text-[13.5px] font-medium text-ink">{label}</p>
 
-          <p className="text-[12.5px] text-ink-muted">
-            Already connected
-          </p>
+          <p className="text-[12.5px] text-ink-muted">Already connected</p>
         </div>
       </div>
     );
@@ -267,19 +229,13 @@ function ConnectCard({
       className="flex items-center gap-3 rounded-lg border border-line px-4 py-3.5 transition hover:bg-surface-inset"
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface-inset">
-        <Icon
-          className={`h-4 w-4 ${color}`}
-        />
+        <Icon className={`h-4 w-4 ${color}`} />
       </div>
 
       <div>
-        <p className="text-[13.5px] font-medium text-ink">
-          {label}
-        </p>
+        <p className="text-[13.5px] font-medium text-ink">{label}</p>
 
-        <p className="text-[12.5px] text-ink-muted">
-          {description}
-        </p>
+        <p className="text-[12.5px] text-ink-muted">{description}</p>
       </div>
     </Link>
   );

@@ -29,8 +29,13 @@ const BOTTOM_ITEMS = [{ href: "/settings", label: "Settings", icon: Settings }];
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  // const isActive = (href: string) =>
+  //   pathname === href || pathname.startsWith(`${href}/`);
+
+  // const isActive = (href: string) => {
+  
+
+  const isActive = (href: string) => pathname === href;
 
   return (
     <nav className={cn("flex h-full flex-col bg-surface", className)}>
