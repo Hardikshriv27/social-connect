@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -23,11 +23,11 @@ model ConnectedAccount {
   userId         String
   platform       String                   // "FACEBOOK", "INSTAGRAM", "YOUTUBE", etc.
   platformUserId String                   // ID of the user on that platform
-  accessToken    String                   @db.NVarChar(Max) // Store long OAuth tokens safely
-  refreshToken   String?                  @db.NVarChar(Max)
+  accessToken    String                   // Store long OAuth tokens safely
+  refreshToken   String?
   expiresAt      DateTime?
   profileName    String?
-  profilePicture String?                  @db.NVarChar(Max)
+  profilePicture String?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
 
@@ -46,7 +46,7 @@ model FacebookAccount {
   connectedAccountId String           @unique
   pageId             String?
   pageName           String?
-  pageAccessToken    String?          @db.NVarChar(Max)
+  pageAccessToken    String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -79,7 +79,7 @@ model Post {
   id          String                   @id @default(uuid())
   userId      String
   title       String?
-  content     String?                  @db.NVarChar(Max)
+  content     String?
   scheduledAt DateTime?
   publishedAt DateTime?
   status      String                   @default("DRAFT") // "DRAFT", "SCHEDULED", "PUBLISHED", "FAILED"
@@ -96,7 +96,7 @@ model Post {
 model PostMedia {
   id        String   @id @default(uuid())
   postId    String
-  url       String   @db.NVarChar(Max)
+  url       String
   type      String   // "IMAGE", "VIDEO"
   size      Int?
   mimeType  String?
@@ -113,9 +113,9 @@ model PlatformPublishingInfo {
   connectedAccountId String
   status             String           @default("PENDING") // "PENDING", "PUBLISHED", "FAILED"
   externalPostId     String?          // ID of post returned by platform
-  errorMessage       String?          @db.NVarChar(Max)
+  errorMessage       String?
   publishedAt        DateTime?
-  platformSpecificData String?        @db.NVarChar(Max) // JSON configurations/options
+  platformSpecificData String?        // JSON configurations/options
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
