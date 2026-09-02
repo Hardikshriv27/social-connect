@@ -9,11 +9,17 @@ import {
   getInstagramProfileName,
 } from "@/services/meta/instagram";
 
-export async function GET(request: Request) {
+function getAppUrl() {
+  return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
+export async function GET() {
   const session = await auth();
 
+  const appUrl = getAppUrl();
+
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login", appUrl));
   }
 
   try {
@@ -21,7 +27,7 @@ export async function GET(request: Request) {
 
     if (!accessToken) {
       return NextResponse.redirect(
-        new URL("/accounts?oauth=instagram_not_configured", request.url),
+        new URL("/accounts?oauth=instagram_not_configured", appUrl),
       );
     }
 
@@ -48,13 +54,11 @@ export async function GET(request: Request) {
           upsert: {
             update: {
               instagramBusinessAccountId: profile.id,
-
               username: profile.username || null,
             },
 
             create: {
               instagramBusinessAccountId: profile.id,
-
               username: profile.username || null,
             },
           },
@@ -72,7 +76,6 @@ export async function GET(request: Request) {
         instagramDetail: {
           create: {
             instagramBusinessAccountId: profile.id,
-
             username: profile.username || null,
           },
         },
@@ -80,13 +83,13 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.redirect(
-      new URL("/accounts?oauth=instagram_connected", request.url),
+      new URL("/accounts?oauth=instagram_connected", appUrl),
     );
   } catch (error) {
     console.error("Instagram connection failed:", error);
 
     return NextResponse.redirect(
-      new URL("/accounts?oauth=instagram_failed", request.url),
+      new URL("/accounts?oauth=instagram_failed", appUrl),
     );
   }
 }

@@ -1,366 +1,570 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, X, Loader2 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+type Platform = "Facebook" | "Instagram" | "YouTube";
 
-import {
-  FacebookIcon,
-  InstagramIcon,
-  YoutubeIcon,
-} from "@/components/social/PlatformIcons";
-
-const PLATFORMS = [
-  {
-    id: "FACEBOOK",
-    label: "Facebook",
-    icon: FacebookIcon,
-    color: "text-[#1877F2]",
-  },
-  {
-    id: "INSTAGRAM",
-    label: "Instagram",
-    icon: InstagramIcon,
-    color: "text-[#E4405F]",
-  },
-  {
-    id: "YOUTUBE",
-    label: "YouTube",
-    icon: YoutubeIcon,
-    color: "text-[#FF0000]",
-  },
-] as const;
-
-type UploadedMedia = {
-  url: string;
-  name: string;
+type StoredPost = {
+  id: string;
+  title: string;
+  content: string;
+  platforms: Platform[];
+  files: {
+    name: string;
+    type: string;
+    size: number;
+  }[];
+  status: "draft" | "published" | "scheduled";
+  scheduleForLater: boolean;
+  createdAt: string;
+  publishedAt?: string;
 };
+
+const STORAGE_KEY = "social-connect-posts";
 
 export default function CreatePostPage() {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [scheduleForLater, setScheduleForLater] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isScheduling, setIsScheduling] = useState(false);
+  const togglePlatform = (platform: Platform) => {
+    setSelectedPlatforms((current) => {
+      if (current.includes(platform)) {
+        return current.filter((item) => item !== platform);
+      }
 
-  const [scheduledAt, setScheduledAt] = useState("");
+      return [...current, platform];
+    });
 
-  const [media, setMedia] = useState<UploadedMedia[]>([]);
+    setMessage("");
+  };
 
-  const [isUploading, setIsUploading] = useState(false);
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
 
-  const [error, setError] = useState<string | null>(null);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  function togglePlatform(id: string) {
-    setSelectedPlatforms((previous) =>
-      previous.includes(id)
-        ? previous.filter((platform) => platform !== id)
-        : [...previous, id],
-    );
-  }
-
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    if (selectedFiles.length > 0) {
+      setFiles((current) => [...current, ...selectedFiles]);
+      setMessage("");
+    }
 
     event.target.value = "";
+  };
 
-    if (!file) {
+  const removeFile = (index: number) => {
+    setFiles((current) =>
+      current.filter((_, fileIndex) => fileIndex !== index),
+    );
+  };
+
+  const getStoredPosts = (): StoredPost[] => {
+    try {
+      const savedPosts = localStorage.getItem(STORAGE_KEY);
+
+      if (!savedPosts) {
+        return [];
+      }
+
+      const parsedPosts = JSON.parse(savedPosts);
+
+      return Array.isArray(parsedPosts) ? parsedPosts : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const savePost = (status: "draft" | "published" | "scheduled") => {
+    const post: StoredPost = {
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+
+      title: title.trim(),
+      content: content.trim(),
+
+      platforms: selectedPlatforms,
+
+      files: files.map((file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      })),
+
+      status,
+      scheduleForLater,
+      createdAt: new Date().toISOString(),
+
+      ...(status === "published"
+        ? {
+            publishedAt: new Date().toISOString(),
+          }
+        : {}),
+    };
+
+    const existingPosts = getStoredPosts();
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([post, ...existingPosts]));
+  };
+
+  const handleSaveDraft = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    setIsSaving(true);
+
+    try {
+      savePost("draft");
+
+      setMessage("Post saved as draft.");
+
+      setTimeout(() => {
+        router.push("/posts");
+      }, 500);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublish = () => {
+    if (!title.trim()) {
+      setMessage("Please enter a title.");
       return;
     }
 
-    setError(null);
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-
-      formData.append("file", file);
-
-      const response = await fetch("/api/uploads", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Upload failed.");
-
-        return;
-      }
-
-      setMedia((previous) => [
-        ...previous,
-        {
-          url: data.url,
-          name: file.name,
-        },
-      ]);
-    } catch {
-      setError("Upload failed. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
-  function removeMedia(url: string) {
-    setMedia((previous) => previous.filter((item) => item.url !== url));
-  }
-
-  async function submitPost(status: "DRAFT" | "SCHEDULED") {
-    setError(null);
-
-    if (!title.trim() || !content.trim()) {
-      setError("Title and content are required.");
-
+    if (!content.trim()) {
+      setMessage("Please enter post content.");
       return;
     }
 
     if (selectedPlatforms.length === 0) {
-      setError("Select at least one platform.");
-
+      setMessage("Please select at least one platform.");
       return;
     }
 
-    if (status === "SCHEDULED" && !scheduledAt) {
-      setError("Choose a date and time to schedule this post.");
-
-      return;
-    }
-
-    setIsSubmitting(true);
+    setIsSaving(true);
 
     try {
-      const response = await fetch("/api/posts", {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          title,
-          content,
-          status,
-
-          scheduledAt:
-            status === "SCHEDULED" ? new Date(scheduledAt).toISOString() : null,
-
-          platforms: selectedPlatforms,
-
-          mediaUrls: media.map((item) => item.url),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Could not save this post.");
-
-        return;
+      if (scheduleForLater) {
+        savePost("scheduled");
+        setMessage("Post scheduled successfully.");
+      } else {
+        savePost("published");
+        setMessage("Post published successfully.");
       }
 
-      router.push("/posts");
-
-      router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+      setTimeout(() => {
+        router.push("/posts");
+      }, 500);
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
-  }
-
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-
-    submitPost(isScheduling ? "SCHEDULED" : "DRAFT");
-  }
+  };
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">
+    <main
+      style={{
+        width: "100%",
+        minHeight: "100%",
+        padding: "40px 48px",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "900px",
+          margin: "0 auto",
+          background: "rgba(255,255,255,0.55)",
+          border: "1px solid #d8ddd9",
+          borderRadius: "18px",
+          padding: "30px",
+          boxSizing: "border-box",
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            color: "#27342f",
+            fontSize: "28px",
+            fontWeight: 700,
+          }}
+        >
           Create post
         </h1>
 
-        <p className="mt-1 text-[13.5px] text-ink-muted">
-          Write your content, attach media, and publish or schedule it.
+        <p
+          style={{
+            marginTop: "8px",
+            marginBottom: "30px",
+            color: "#66716b",
+            fontSize: "15px",
+          }}
+        >
+          Create and publish content across your connected platforms.
         </p>
-      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-6 rounded-lg border border-line p-6"
-      >
-        <div>
-          <label
-            htmlFor="title"
-            className="mb-1.5 block text-sm font-medium text-ink"
-          >
-            Title
-          </label>
-
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Give your post a name"
-            className="w-full rounded-md border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-brand"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="content"
-            className="mb-1.5 block text-sm font-medium text-ink"
-          >
-            Content
-          </label>
-
-          <textarea
-            id="content"
-            rows={6}
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="What do you want to share?"
-            className="w-full resize-none rounded-md border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-brand"
-          />
-        </div>
-
-        <div>
-          <p className="mb-1.5 block text-sm font-medium text-ink">Platforms</p>
-
-          <p className="mb-2.5 text-[12.5px] text-ink-muted">
-            Select where this post should be published.
-          </p>
-
-          <div className="flex flex-wrap gap-2">
-            {PLATFORMS.map(({ id, label, icon: Icon, color }) => {
-              const isSelected = selectedPlatforms.includes(id);
-
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => togglePlatform(id)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md border px-3.5 py-2 text-sm font-medium transition",
-                    isSelected
-                      ? "border-brand bg-brand-soft text-brand"
-                      : "border-line text-ink-muted hover:text-ink",
-                  )}
-                >
-                  <Icon
-                    className={cn("h-4 w-4", isSelected ? "text-brand" : color)}
-                  />
-
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-1.5 block text-sm font-medium text-ink">Media</p>
-
-          <div className="flex flex-wrap gap-2">
-            {media.map((item) => (
-              <div
-                key={item.url}
-                className="flex items-center gap-2 rounded-md border border-line px-3 py-2 text-xs text-ink"
-              >
-                <span className="max-w-[140px] truncate">{item.name}</span>
-
-                <button
-                  type="button"
-                  onClick={() => removeMedia(item.url)}
-                  className="text-ink-muted hover:text-ink"
-                  aria-label={`Remove ${item.name}`}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-line px-3.5 py-2 text-xs font-medium text-ink-muted transition hover:border-brand hover:text-brand">
-              {isUploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ImagePlus className="h-3.5 w-3.5" strokeWidth={1.75} />
-              )}
-
-              {isUploading ? "Uploading…" : "Attach file"}
-
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-                className="hidden"
-                onChange={handleFileChange}
-                disabled={isUploading}
-              />
+        <form onSubmit={handleSaveDraft}>
+          {/* TITLE */}
+          <div style={{ marginBottom: "26px" }}>
+            <label
+              htmlFor="title"
+              style={{
+                display: "block",
+                marginBottom: "9px",
+                color: "#2d3934",
+                fontWeight: 600,
+              }}
+            >
+              Title
             </label>
-          </div>
-        </div>
 
-        <div className="rounded-md border border-line bg-surface-inset p-4">
-          <label className="flex items-center gap-2.5 text-sm font-medium text-ink">
+            <input
+              id="title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Enter post title"
+              style={{
+                width: "100%",
+                height: "50px",
+                padding: "0 16px",
+                boxSizing: "border-box",
+                border: "1px solid #d4d9d5",
+                borderRadius: "10px",
+                outline: "none",
+                fontSize: "15px",
+                background: "#ffffff",
+                color: "#28332f",
+              }}
+            />
+          </div>
+
+          {/* CONTENT */}
+          <div style={{ marginBottom: "30px" }}>
+            <label
+              htmlFor="content"
+              style={{
+                display: "block",
+                marginBottom: "9px",
+                color: "#2d3934",
+                fontWeight: 600,
+              }}
+            >
+              Content
+            </label>
+
+            <textarea
+              id="content"
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder="Write your post content..."
+              style={{
+                width: "100%",
+                minHeight: "170px",
+                padding: "16px",
+                boxSizing: "border-box",
+                border: "1px solid #d4d9d5",
+                borderRadius: "10px",
+                outline: "none",
+                resize: "vertical",
+                fontSize: "15px",
+                fontFamily: "inherit",
+                background: "#ffffff",
+                color: "#28332f",
+              }}
+            />
+          </div>
+
+          {/* PLATFORMS */}
+          <div style={{ marginBottom: "28px" }}>
+            <h3
+              style={{
+                margin: 0,
+                marginBottom: "6px",
+                color: "#2d3934",
+                fontSize: "16px",
+              }}
+            >
+              Platforms
+            </h3>
+
+            <p
+              style={{
+                marginTop: 0,
+                marginBottom: "16px",
+                color: "#66716b",
+                fontSize: "14px",
+              }}
+            >
+              Select where this post should be published.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              {(["Facebook", "Instagram", "YouTube"] as Platform[]).map(
+                (platform) => {
+                  const active = selectedPlatforms.includes(platform);
+
+                  return (
+                    <button
+                      key={platform}
+                      type="button"
+                      onClick={() => togglePlatform(platform)}
+                      style={{
+                        minWidth: "125px",
+                        padding: "13px 20px",
+                        borderRadius: "10px",
+                        border: active
+                          ? "1px solid #426856"
+                          : "1px solid #d2d8d4",
+                        background: active ? "#426856" : "#ffffff",
+                        color: active ? "#ffffff" : "#46514c",
+                        cursor: "pointer",
+                        fontSize: "15px",
+                        fontWeight: active ? 600 : 500,
+                      }}
+                    >
+                      {platform}
+                    </button>
+                  );
+                },
+              )}
+            </div>
+          </div>
+
+          {/* MEDIA */}
+          <div style={{ marginBottom: "28px" }}>
+            <h3
+              style={{
+                margin: 0,
+                marginBottom: "6px",
+                color: "#2d3934",
+                fontSize: "16px",
+              }}
+            >
+              Media
+            </h3>
+
+            <p
+              style={{
+                marginTop: 0,
+                marginBottom: "14px",
+                color: "#66716b",
+                fontSize: "14px",
+              }}
+            >
+              Add images or videos to your post.
+            </p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              onChange={handleFileChange}
+              style={{ display: "none" }}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                padding: "13px 20px",
+                borderRadius: "10px",
+                border: "1px dashed #aeb8b2",
+                background: "#ffffff",
+                color: "#46514c",
+                cursor: "pointer",
+                fontSize: "15px",
+              }}
+            >
+              Add image or video
+            </button>
+
+            <p
+              style={{
+                marginTop: "10px",
+                marginBottom: 0,
+                color: "#748078",
+                fontSize: "13px",
+              }}
+            >
+              Images and videos supported
+            </p>
+
+            {files.length > 0 && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                {files.map((file, index) => (
+                  <div
+                    key={`${file.name}-${index}`}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "10px 14px",
+                      background: "#f1f4f1",
+                      borderRadius: "8px",
+                      border: "1px solid #dce2dd",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "#3d4943",
+                        fontSize: "14px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        paddingRight: "16px",
+                      }}
+                    >
+                      {file.name}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        color: "#9b4d4d",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SCHEDULE */}
+          <label
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "18px",
+              marginBottom: "26px",
+              boxSizing: "border-box",
+              border: "1px solid #d5dbd7",
+              borderRadius: "10px",
+              cursor: "pointer",
+              background: "#ffffff",
+            }}
+          >
             <input
               type="checkbox"
-              checked={isScheduling}
-              onChange={(event) => setIsScheduling(event.target.checked)}
-              className="h-4 w-4 rounded border-line accent-brand"
+              checked={scheduleForLater}
+              onChange={(event) => setScheduleForLater(event.target.checked)}
+              style={{
+                width: "18px",
+                height: "18px",
+                cursor: "pointer",
+              }}
             />
-            Schedule for later
+
+            <span
+              style={{
+                color: "#303b36",
+                fontWeight: 600,
+              }}
+            >
+              Schedule for later
+            </span>
           </label>
 
-          {isScheduling && (
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(event) => setScheduledAt(event.target.value)}
-              className="mt-3 w-full rounded-md border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand"
-            />
+          {/* ACTION BUTTONS */}
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="submit"
+              disabled={isSaving}
+              style={{
+                padding: "14px 20px",
+                borderRadius: "9px",
+                border: "1px solid #d0d7d2",
+                background: "#ffffff",
+                color: "#344039",
+                cursor: isSaving ? "not-allowed" : "pointer",
+                fontSize: "15px",
+                fontWeight: 600,
+                opacity: isSaving ? 0.7 : 1,
+              }}
+            >
+              Save as draft
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={isSaving}
+              style={{
+                padding: "14px 20px",
+                borderRadius: "9px",
+                border: "1px solid #426856",
+                background: "#426856",
+                color: "#ffffff",
+                cursor: isSaving ? "not-allowed" : "pointer",
+                fontSize: "15px",
+                fontWeight: 600,
+                opacity: isSaving ? 0.7 : 1,
+              }}
+            >
+              {isSaving
+                ? "Processing..."
+                : scheduleForLater
+                  ? "Schedule post"
+                  : "Publish now"}
+            </button>
+          </div>
+
+          {message && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "13px 16px",
+                borderRadius: "9px",
+                background: "#edf4ef",
+                border: "1px solid #cbdace",
+                color: "#426856",
+                fontSize: "14px",
+                fontWeight: 500,
+              }}
+            >
+              {message}
+            </div>
           )}
-        </div>
-
-        {error && (
-          <p className="rounded-md border border-danger/20 bg-danger-soft px-3 py-2 text-sm text-danger">
-            {error}
-          </p>
-        )}
-
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => submitPost("DRAFT")}
-            className="rounded-md border border-line px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-surface-inset disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Save as draft
-          </button>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-md bg-brand px-4 py-2.5 text-sm font-medium text-brand-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting
-              ? "Saving…"
-              : isScheduling
-                ? "Schedule post"
-                : "Save as draft"}
-          </button>
-        </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </main>
   );
 }

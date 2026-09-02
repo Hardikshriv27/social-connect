@@ -2,21 +2,24 @@ const META_GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || "v24.0";
 
 const GRAPH_BASE_URL = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
+type MetaApiError = {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+};
+
 type MetaTokenResponse = {
   access_token?: string;
   token_type?: string;
   expires_in?: number;
-  error?: {
-    message?: string;
-  };
+  error?: MetaApiError;
 };
 
 type MetaUserResponse = {
   id?: string;
   name?: string;
-  error?: {
-    message?: string;
-  };
+  error?: MetaApiError;
 };
 
 export type MetaInstagramAccount = {
@@ -35,14 +38,12 @@ export type MetaPage = {
 
 type MetaPagesResponse = {
   data?: MetaPage[];
-  error?: {
-    message?: string;
-  };
+  error?: MetaApiError;
 };
 
 function getMetaCredentials() {
-  const clientId = process.env.META_CLIENT_ID;
-  const clientSecret = process.env.META_CLIENT_SECRET;
+  const clientId = process.env.META_CLIENT_ID?.trim();
+  const clientSecret = process.env.META_CLIENT_SECRET?.trim();
 
   if (!clientId || !clientSecret) {
     throw new Error(
@@ -57,13 +58,33 @@ function getMetaCredentials() {
 }
 
 async function readJson<T>(response: Response): Promise<T> {
-  const data = await response.json();
+  let data: any;
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      `Meta API returned an invalid response. HTTP ${response.status}`,
+    );
+  }
 
   if (!response.ok) {
-    const message =
-      data?.error?.message || data?.message || "Meta API request failed.";
+    const error = data?.error;
 
-    throw new Error(message);
+    const message =
+      error?.message ||
+      data?.message ||
+      `Meta API request failed with HTTP ${response.status}.`;
+
+    const details = [
+      error?.type,
+      error?.code ? `code ${error.code}` : null,
+      error?.error_subcode ? `subcode ${error.error_subcode}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    throw new Error(details ? `${message} (${details})` : message);
   }
 
   return data as T;
@@ -75,26 +96,25 @@ export async function exchangeMetaCodeForUserToken(
 ) {
   const { clientId, clientSecret } = getMetaCredentials();
 
-  const url = new URL(
-    `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token`,
-  );
+  const url = new URL(`${GRAPH_BASE_URL}/oauth/access_token`);
 
   url.searchParams.set("client_id", clientId);
 
   url.searchParams.set("client_secret", clientSecret);
 
-  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("redirect_uri", redirectUri.trim());
 
   url.searchParams.set("code", code);
 
   const response = await fetch(url, {
+    method: "GET",
     cache: "no-store",
   });
 
   const data = await readJson<MetaTokenResponse>(response);
 
   if (!data.access_token) {
-    throw new Error("Meta did not return an access token.");
+    throw new Error("Meta did not return a user access token.");
   }
 
   return {
@@ -106,9 +126,7 @@ export async function exchangeMetaCodeForUserToken(
 export async function exchangeForLongLivedMetaToken(shortLivedToken: string) {
   const { clientId, clientSecret } = getMetaCredentials();
 
-  const url = new URL(
-    `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token`,
-  );
+  const url = new URL(`${GRAPH_BASE_URL}/oauth/access_token`);
 
   url.searchParams.set("grant_type", "fb_exchange_token");
 
@@ -119,13 +137,14 @@ export async function exchangeForLongLivedMetaToken(shortLivedToken: string) {
   url.searchParams.set("fb_exchange_token", shortLivedToken);
 
   const response = await fetch(url, {
+    method: "GET",
     cache: "no-store",
   });
 
   const data = await readJson<MetaTokenResponse>(response);
 
   if (!data.access_token) {
-    throw new Error("Could not obtain long-lived Meta token.");
+    throw new Error("Could not obtain a long-lived Meta access token.");
   }
 
   return {
@@ -142,6 +161,7 @@ export async function getMetaUser(accessToken: string) {
   url.searchParams.set("access_token", accessToken);
 
   const response = await fetch(url, {
+    method: "GET",
     cache: "no-store",
   });
 
@@ -157,7 +177,9 @@ export async function getMetaUser(accessToken: string) {
   };
 }
 
-export async function getManagedMetaPages(accessToken: string) {
+export async function getManagedMetaPages(
+  accessToken: string,
+): Promise<MetaPage[]> {
   const url = new URL(`${GRAPH_BASE_URL}/me/accounts`);
 
   url.searchParams.set(
@@ -173,10 +195,23 @@ export async function getManagedMetaPages(accessToken: string) {
   url.searchParams.set("access_token", accessToken);
 
   const response = await fetch(url, {
+    method: "GET",
     cache: "no-store",
   });
 
   const data = await readJson<MetaPagesResponse>(response);
 
-  return data.data || [];
+  const pages = data.data || [];
+
+  console.log(
+    "Meta Pages fetched:",
+    pages.map((page) => ({
+      id: page.id,
+      name: page.name,
+      hasPageAccessToken: Boolean(page.access_token),
+      instagramBusinessAccount: page.instagram_business_account?.id || null,
+    })),
+  );
+
+  return pages;
 }

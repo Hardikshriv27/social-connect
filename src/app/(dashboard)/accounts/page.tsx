@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Link2 } from "lucide-react";
 
@@ -224,7 +223,7 @@ function ConnectCard({
   }
 
   return (
-    <Link
+    <a
       href={href}
       className="flex items-center gap-3 rounded-lg border border-line px-4 py-3.5 transition hover:bg-surface-inset"
     >
@@ -237,6 +236,6 @@ function ConnectCard({
 
         <p className="text-[12.5px] text-ink-muted">{description}</p>
       </div>
-    </Link>
+    </a>
   );
 }

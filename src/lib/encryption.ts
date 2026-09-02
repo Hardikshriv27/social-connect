@@ -1,34 +1,28 @@
 import crypto from "crypto";
 
-const ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 12;
-const AUTH_TAG_LENGTH = 16;
+function getKey() {
+  const value = process.env.ENCRYPTION_KEY;
 
-function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY;
-
-  if (!key) {
+  if (!value) {
     throw new Error("ENCRYPTION_KEY is not configured.");
   }
 
-  if (!/^[a-fA-F0-9]{64}$/.test(key)) {
+  const key = Buffer.from(value, "hex");
+
+  if (key.length !== 32) {
     throw new Error(
-      "ENCRYPTION_KEY must be exactly 64 hexadecimal characters (32 bytes).",
+      "ENCRYPTION_KEY must be exactly 64 hexadecimal characters.",
     );
   }
 
-  return Buffer.from(key, "hex");
+  return key;
 }
 
-export function encrypt(value: string): string {
-  if (!value) {
-    throw new Error("Cannot encrypt an empty value.");
-  }
+export function encrypt(value: string) {
+  const key = getKey();
+  const iv = crypto.randomBytes(12);
 
-  const key = getEncryptionKey();
-  const iv = crypto.randomBytes(IV_LENGTH);
-
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
 
   const encrypted = Buffer.concat([
     cipher.update(value, "utf8"),
@@ -38,37 +32,33 @@ export function encrypt(value: string): string {
   const authTag = cipher.getAuthTag();
 
   return [
-    "v1",
-    iv.toString("base64url"),
-    authTag.toString("base64url"),
-    encrypted.toString("base64url"),
-  ].join(".");
+    iv.toString("hex"),
+    authTag.toString("hex"),
+    encrypted.toString("hex"),
+  ].join(":");
 }
 
-export function decrypt(value: string): string {
-  const parts = value.split(".");
+export function decrypt(value: string) {
+  const key = getKey();
 
-  if (parts.length !== 4 || parts[0] !== "v1") {
-    throw new Error("Invalid encrypted value format.");
+  const parts = value.split(":");
+
+  if (parts.length !== 3) {
+    throw new Error("Invalid encrypted token format.");
   }
 
-  const [, ivValue, authTagValue, encryptedValue] = parts;
+  const [ivHex, authTagHex, encryptedHex] = parts;
 
-  const key = getEncryptionKey();
-  const iv = Buffer.from(ivValue, "base64url");
-  const authTag = Buffer.from(authTagValue, "base64url");
-  const encrypted = Buffer.from(encryptedValue, "base64url");
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(ivHex, "hex"),
+  );
 
-  if (iv.length !== IV_LENGTH || authTag.length !== AUTH_TAG_LENGTH) {
-    throw new Error("Invalid encrypted value.");
-  }
-
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-
-  decipher.setAuthTag(authTag);
+  decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
 
   const decrypted = Buffer.concat([
-    decipher.update(encrypted),
+    decipher.update(Buffer.from(encryptedHex, "hex")),
     decipher.final(),
   ]);
 
